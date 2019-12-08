@@ -1,7 +1,12 @@
+import os
 from absl import logging
 import numpy as np
 import tensorflow as tf
 import cv2
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+from six.moves import urllib
+from tqdm import tqdm
 
 
 def broadcast_iou(box_1, box_2):

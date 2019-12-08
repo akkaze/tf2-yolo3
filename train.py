@@ -27,7 +27,7 @@ def main(_argv):
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     if len(physical_devices) > 0:
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
-    os.makedirs('checkpoint', exist_ok=True)
+    os.makedirs('checkpoints', exist_ok=True)
     if FLAGS.tiny:
         if FLAGS.m2nist:
             channels = 1

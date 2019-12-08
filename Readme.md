@@ -1,3 +1,5 @@
+# tf2-yolo3
+
 ## Quick Start
 
 This code depends on tensorflow-2.x, please install it first.
@@ -11,6 +13,8 @@ This code also requires opencv-python, install it by pip or conda as the followi
 **pip install opencv-python**
 
 **pip install absl-py**
+
+**pip install numpy**
 
 ## Training
 

@@ -1,15 +1,11 @@
 import numpy as np
 import sys
-#np.set_printoptions(threshold=sys.maxsize)
-
 import tensorflow as tf
 import cv2
 import time
 import sys
-from .utils import cv2_letterbox_resize
+from .utils import cv2_letterbox_resize, download_from_url
 import zipfile
-from six.moves import urllib
-from tqdm import tqdm
 import os
 
 
@@ -125,9 +121,11 @@ def download_m2nist_if_not_exist():
     m2nist_zip_url = 'https://raw.githubusercontent.com/akkaze/datasets/master/m2nist.zip'
     while True:
         try:
+            print('Trying to download m2nist...')
             download_from_url(m2nist_zip_url, m2nist_zip_path)
             break
-        except:
+        except Exception as exc:
+            print('Errors occured : {0}'.format(exc))
             time.sleep(5)
             continue
     zipf = zipfile.ZipFile(m2nist_zip_path)
