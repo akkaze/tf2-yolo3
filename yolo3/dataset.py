@@ -51,9 +51,9 @@ def transform_targets_for_output(y_true, grid_y, grid_x, anchor_idxs, classes):
 def transform_targets(y_train, size, anchors, anchor_masks, classes, tiny=True):
     y_outs = []
     if tiny:
-        grid_y, grid_x = size // 16
+        grid_y, grid_x = size[0] // 16, size[1] // 16
     else:
-        grid_y, grid_x = size // 32
+        grid_y, grid_x = size[0] // 32, size[1] // 32
     # calculate anchor index for true boxes
     anchors = tf.cast(anchors, tf.float32)
     anchor_area = anchors[..., 0] * anchors[..., 1]
