@@ -3,6 +3,7 @@ from absl.flags import FLAGS
 import tensorflow as tf
 import numpy as np
 import cv2
+import os
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint, CSVLogger
 from yolo3.models import YoloV3, YoloV3Tiny, YoloLoss, yolo_anchors, yolo_anchor_masks, yolo_tiny_anchors, yolo_tiny_anchor_masks
 import yolo3.dataset as dataset
@@ -26,7 +27,7 @@ def main(_argv):
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     if len(physical_devices) > 0:
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
+    os.makedirs('checkpoint', exist_ok=True)
     if FLAGS.tiny:
         if FLAGS.m2nist:
             channels = 1
