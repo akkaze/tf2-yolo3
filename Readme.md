@@ -1,8 +1,10 @@
-Quick Start
+## Quick Start
 
 This code depends on tensorflow-2.x, please install it first.
 
-The easiest way is to use conda, **conda install tensorflow-gpu==2.0.0**
+The easiest way is to use conda, 
+
+**conda install tensorflow-gpu==2.0.0**
 
 This code also requires opencv-python, install it by pip or conda as the following
 
@@ -10,9 +12,11 @@ This code also requires opencv-python, install it by pip or conda as the followi
 
 **pip install absl-py**
 
-### Training
+## Training
 
-To train on m2nist dataset, just run **python train.py**
+To train on m2nist dataset, just run 
+
+**python train.py**
 
 To train on your own dataset, just run 
 
@@ -33,8 +37,12 @@ path/to/img2.jpg 120,300,250,600,2
 ...
 ```
 
-### Use your model
+## Use your model
 
 To detect on single image,just run
 
 **python detect.py   --image path_to_your_image.png  --output path_to_your_output.png  --size 320,320**  
+
+
+
+If you have any question, please contact me directly,my email is zhengankun@163.com
