@@ -49,8 +49,6 @@ To detect on single image,just run
 
 Here is two example on m2nist dataset
 
-![output0](https://github.com/akkaze/tf2-yolo3/blob/master/assets/output0.jpg)
-
-![output1](https://github.com/akkaze/tf2-yolo3/blob/master/assets/output1.jpg)
+![output0](https://github.com/akkaze/tf2-yolo3/blob/master/assets/output0.jpg)![output1](https://github.com/akkaze/tf2-yolo3/blob/master/assets/output1.jpg)
 
 If you have any question, please contact me directly,my email is zhengankun@163.com
