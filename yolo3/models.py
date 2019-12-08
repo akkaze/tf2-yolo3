@@ -133,7 +133,8 @@ def YoloOutput(filters, anchors, classes, name=None):
 
 def yolo_boxes(pred, anchors, num_classes):
     # pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
-    grid_size = tf.shape(pred)[1]
+    grid_size = tf.shape(pred)[1:2]
+    grid_y, grid_x = tf.shape(pred)[1], tf.shape(pred)[2]
 
     box_xy, box_wh, objectness, class_probs = tf.split(pred, (2, 2, 1, num_classes), axis=-1)
     box_xy = tf.sigmoid(box_xy)
@@ -144,7 +145,7 @@ def yolo_boxes(pred, anchors, num_classes):
     pred_box = tf.concat((box_xy, box_wh), axis=-1)  # original xywh for loss
 
     # !!! grid[x][y] == (y, x)
-    grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+    grid = tf.meshgrid(tf.range(grid_x), tf.range(grid_y))
     grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)  # [gx, gy, 1, 2]
 
     box_xy = (box_xy + tf.cast(grid, tf.float32)) / tf.cast(grid_size, tf.float32)
@@ -162,14 +163,11 @@ def nms(bboxes, scores, iou_threshold):
     if len(bboxes) == 0:
         return np.zeros((0, 4), np.float32), np.zeros((0), np.int32)
     boxes = np.array(bboxes)
-    start_x = boxes[:, 0]
-    start_y = boxes[:, 1]
-    end_x = boxes[:, 2]
-    end_y = boxes[:, 3]
+    start_x, start_y, end_x, end_y = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+
     score = np.array(scores)
     # Picked bounding boxes
-    picked_boxes = []
-    picked_scores = []
+    picked_boxes, picked_scores = [], []
 
     # Compute areas of bounding boxes
     areas = (end_x - start_x + 1) * (end_y - start_y + 1)
@@ -184,13 +182,10 @@ def nms(bboxes, scores, iou_threshold):
         picked_boxes.append(bboxes[index])
         picked_scores.append(scores[index])
         # Compute ordinates of intersection-over-union(IOU)
-        x1 = np.maximum(start_x[index], start_x[order[:-1]])
-        x2 = np.minimum(end_x[index], end_x[order[:-1]])
-        y1 = np.maximum(start_y[index], start_y[order[:-1]])
-        y2 = np.minimum(end_y[index], end_y[order[:-1]])
+        x1, x2 = np.maximum(start_x[index], start_x[order[:-1]]), np.minimum(end_x[index], end_x[order[:-1]])
+        y1, y2 = np.maximum(start_y[index], start_y[order[:-1]]), np.minimum(end_y[index], end_y[order[:-1]])
         # Compute areas of intersection-over-union
-        w = np.maximum(0.0, x2 - x1 + 1)
-        h = np.maximum(0.0, y2 - y1 + 1)
+        w, h = np.maximum(0.0, x2 - x1 + 1), np.maximum(0.0, y2 - y1 + 1)
         intersection = w * h
         # Compute the iou
         iou = intersection / (areas[index] + areas[order[:-1]] - intersection)
@@ -202,7 +197,6 @@ def nms(bboxes, scores, iou_threshold):
 
 def batched_nms(bboxes, scores, iou_threshold):
     bboxes, scores, iou_threshold = bboxes.numpy(), scores.numpy(), iou_threshold.numpy()
-    # print(bboxes.shape)
     picked_boxes, picked_scores = [], []
     for i in range(bboxes.shape[0]):
         bboxes_this_bacth = bboxes[i, ...]
@@ -212,11 +206,10 @@ def batched_nms(bboxes, scores, iou_threshold):
         picked_scores.append(picked_scores_this_batch)
     picked_boxes = np.stack(picked_boxes)
     picked_scores = np.stack(picked_scores)
-    # print(picked_boxes.shape)
     return picked_boxes, picked_scores
 
 
-def yolo_nms(outputs, anchors, masks, num_classes, iou_threshold=0.05, score_threshold=0.2):
+def yolo_nms(outputs, anchors, masks, num_classes, iou_threshold=0.05, score_threshold=0.5):
     boxes, confs, classes = [], [], []
 
     for o in outputs:
@@ -325,8 +318,11 @@ def YoloLoss(anchors, num_classes=10, ignore_thresh=0.5):
         box_loss_scale = 2 - true_wh[..., 0] * true_wh[..., 1]
 
         # 3. inverting the pred box equations
-        grid_size = tf.shape(y_true)[1]
-        grid = tf.meshgrid(tf.range(grid_size), tf.range(grid_size))
+        grid_size = tf.shape(y_pred)[1:2]
+
+        grid_y, grid_x = tf.shape(y_pred)[1], tf.shape(y_pred)[2]
+        grid = tf.meshgrid(tf.range(grid_x), tf.range(grid_y))
+
         grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)
         #tf.print(tf.math.count_nonzero(true_xy))
         true_xy = true_xy * tf.cast(grid_size, tf.float32) - tf.cast(grid, tf.float32)

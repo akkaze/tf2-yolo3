@@ -14,8 +14,8 @@ flags.DEFINE_boolean('tiny', True, 'yolov3 or yolov3-tiny')
 flags.DEFINE_boolean('eager', True, 'run_eagerly or not')
 flags.DEFINE_boolean('m2nist', True, 'use m2nist datast or not')
 flags.DEFINE_string('checkpoint', '', 'checkpoint file for resume training')
-flags.DEFINE_list('size', [128, 128], 'image size')
-flags.DEFINE_integer('epochs', 29, 'number of epochs')
+flags.DEFINE_list('size', [64, 80], 'image size')
+flags.DEFINE_integer('epochs', 30, 'number of epochs')
 flags.DEFINE_integer('batch_size', 1, 'batch size')
 flags.DEFINE_float('learning_rate', 1e-4, 'learning rate')
 flags.DEFINE_integer('num_classes', 10, 'number of classes in the model')
@@ -50,21 +50,20 @@ def main(_argv):
             val_dataset = dataset.load_textline_dataset(FLAGS.val_dataset, size)
 
     else:
-        train_dataset, val_dataset = dataset.load_m2nist_dataset((64, 64), 0.2)
+        train_dataset, val_dataset = dataset.load_m2nist_dataset(size[::-1], 0.2)
 
     train_dataset = train_dataset.shuffle(buffer_size=1024)
     train_dataset = train_dataset.batch(FLAGS.batch_size)
-    train_dataset = train_dataset.map(lambda x, y:
-                                      (x, dataset.transform_targets(y, anchors, anchor_masks, FLAGS.num_classes)))
+    train_dataset = train_dataset.map(
+        lambda x, y: (x, dataset.transform_targets(y, size, anchors, anchor_masks, FLAGS.num_classes, FLAGS.tiny)))
     train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
     val_dataset = val_dataset.batch(FLAGS.batch_size)
-    val_dataset = val_dataset.map(lambda x, y:
-                                  (x, dataset.transform_targets(y, anchors, anchor_masks, FLAGS.num_classes)))
+    val_dataset = val_dataset.map(
+        lambda x, y: (x, dataset.transform_targets(y, size, anchors, anchor_masks, FLAGS.num_classes, FLAGS.tiny)))
     model.summary()
     optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
     loss = [YoloLoss(anchors[mask], num_classes=FLAGS.num_classes) for mask in anchor_masks]
-
     model.compile(optimizer=optimizer, loss=loss, run_eagerly=FLAGS.eager)
 
     callbacks = [
