@@ -3,73 +3,6 @@ import numpy as np
 import tensorflow as tf
 import cv2
 
-YOLOV3_LAYER_LIST = [
-    'yolo_darknet',
-    'yolo_conv_0',
-    'yolo_output_0',
-    'yolo_conv_1',
-    'yolo_output_1',
-    'yolo_conv_2',
-    'yolo_output_2',
-]
-
-YOLOV3_TINY_LAYER_LIST = [
-    'yolo_darknet',
-    'yolo_conv_0',
-    'yolo_output_0',
-    'yolo_conv_1',
-    'yolo_output_1',
-]
-
-
-def load_darknet_weights(model, weights_file, tiny=False):
-    wf = open(weights_file, 'rb')
-    major, minor, revision, seen, _ = np.fromfile(wf, dtype=np.int32, count=5)
-
-    if tiny:
-        layers = YOLOV3_TINY_LAYER_LIST
-    else:
-        layers = YOLOV3_LAYER_LIST
-
-    for layer_name in layers:
-        sub_model = model.get_layer(layer_name)
-        for i, layer in enumerate(sub_model.layers):
-            if not layer.name.startswith('conv2d'):
-                continue
-            batch_norm = None
-            if i + 1 < len(sub_model.layers) and \
-                    sub_model.layers[i + 1].name.startswith('batch_norm'):
-                batch_norm = sub_model.layers[i + 1]
-
-            logging.info("{}/{} {}".format(sub_model.name, layer.name, 'bn' if batch_norm else 'bias'))
-
-            filters = layer.filters
-            size = layer.kernel_size[0]
-            in_dim = layer.input_shape[-1]
-
-            if batch_norm is None:
-                conv_bias = np.fromfile(wf, dtype=np.float32, count=filters)
-            else:
-                # darknet [beta, gamma, mean, variance]
-                bn_weights = np.fromfile(wf, dtype=np.float32, count=4 * filters)
-                # tf [gamma, beta, mean, variance]
-                bn_weights = bn_weights.reshape((4, filters))[[1, 0, 2, 3]]
-
-            # darknet shape (out_dim, in_dim, height, width)
-            conv_shape = (filters, in_dim, size, size)
-            conv_weights = np.fromfile(wf, dtype=np.float32, count=np.product(conv_shape))
-            # tf shape (height, width, in_dim, out_dim)
-            conv_weights = conv_weights.reshape(conv_shape).transpose([2, 3, 1, 0])
-
-            if batch_norm is None:
-                layer.set_weights([conv_weights, conv_bias])
-            else:
-                layer.set_weights([conv_weights])
-                batch_norm.set_weights(bn_weights)
-
-    assert len(wf.read()) == 0, 'failed to read all data'
-    wf.close()
-
 
 def broadcast_iou(box_1, box_2):
     # box_1: (..., (x1, y1, x2, y2))
@@ -86,36 +19,47 @@ def broadcast_iou(box_1, box_2):
     int_w = tf.maximum(tf.minimum(box_1[..., 2], box_2[..., 2]) - tf.maximum(box_1[..., 0], box_2[..., 0]), 0)
     int_h = tf.maximum(tf.minimum(box_1[..., 3], box_2[..., 3]) - tf.maximum(box_1[..., 1], box_2[..., 1]), 0)
     int_area = int_w * int_h
-    box_1_area = (box_1[..., 2] - box_1[..., 0]) * \
-        (box_1[..., 3] - box_1[..., 1])
-    box_2_area = (box_2[..., 2] - box_2[..., 0]) * \
-        (box_2[..., 3] - box_2[..., 1])
+    box_1_area = (box_1[..., 2] - box_1[..., 0]) * (box_1[..., 3] - box_1[..., 1])
+    box_2_area = (box_2[..., 2] - box_2[..., 0]) * (box_2[..., 3] - box_2[..., 1])
     return int_area / (box_1_area + box_2_area - int_area)
 
 
-def draw_outputs(img, outputs, class_names):
-    boxes, objectness, classes, nums = outputs
-    boxes, objectness, classes, nums = boxes[0], objectness[0], classes[0], nums[0]
+def draw_outputs(img, outputs, class_names=None):
+    boxes, objectness, classes = outputs
+    boxes, objectness, classes = boxes[0], objectness[0], classes[0]
     wh = np.flip(img.shape[0:2])
-    for i in range(nums):
+    if img.ndim == 2 or img.shape[2] == 1:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    min_wh = np.amin(wh)
+    if min_wh <= 100:
+        font_size = 1
+    else:
+        font_size = 1
+    for i in range(classes.shape[0]):
         x1y1 = tuple((np.array(boxes[i][0:2]) * wh).astype(np.int32))
         x2y2 = tuple((np.array(boxes[i][2:4]) * wh).astype(np.int32))
-        img = cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 2)
-        img = cv2.putText(img, '{} {:.4f}'.format(int(classes[i]), objectness[i]), x1y1,
-                          cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
+        img = cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 1)
+        img = cv2.putText(img, '{}'.format(int(classes[i])), x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL, font_size,
+                          (0, 0, 255), 1)
     return img
 
 
-def draw_labels(x, y, class_names):
+def draw_labels(x, y, class_names=None):
     img = x.numpy()
+    if img.ndim == 2 or img.shape[2] == 1:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     boxes, classes = tf.split(y, (4, 1), axis=-1)
     classes = classes[..., 0]
     wh = np.flip(img.shape[0:2])
     for i in range(len(boxes)):
         x1y1 = tuple((np.array(boxes[i][0:2]) * wh).astype(np.int32))
         x2y2 = tuple((np.array(boxes[i][2:4]) * wh).astype(np.int32))
-        img = cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 2)
-        img = cv2.putText(img, class_names[classes[i]], x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
+        img = cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 1)
+        if class_names:
+            img = cv2.putText(img, class_names[classes[i]], (x1y1[0] - 2, x1y1[1] - 2), cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                              0.4, (0, 0, 255), 1)
+        else:
+            img = cv2.putText(img, str(classes[i]), x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
     return img
 
 
@@ -124,3 +68,50 @@ def freeze_all(model, frozen=True):
     if isinstance(model, tf.keras.Model):
         for l in model.layers:
             freeze_all(l, frozen)
+
+
+def cv2_letterbox_resize(img, expected_size):
+    ih, iw = img.shape[0:2]
+    ew, eh = expected_size
+    scale = min(eh / ih, ew / iw)
+    nh = int(ih * scale)
+    nw = int(iw * scale)
+    smat = np.array([[scale, 0, 0], [0, scale, 0], [0, 0, 1]], np.float32)
+    top = (eh - nh) // 2
+    bottom = eh - nh - top
+    left = (ew - nw) // 2
+    right = ew - nw - left
+    tmat = np.array([[1, 0, left], [0, 1, top], [0, 0, 1]], np.float32)
+    amat = np.dot(tmat, smat)
+    amat_ = amat[:2, :]
+    dst = cv2.warpAffine(img, amat_, expected_size)
+    if dst.ndim == 2:
+        dst = np.expand_dims(dst, axis=-1)
+    return dst, amat
+
+
+def download_from_url(url, dst):
+    """
+    @param: url to download file
+    @param: dst place to put the file
+    """
+    req = urllib.request.urlopen(url)
+    file_size = int(req.info().get('Content-Length', -1))
+    if os.path.exists(dst):
+        first_byte = os.path.getsize(dst)
+    else:
+        first_byte = 0
+    if first_byte >= file_size:
+        return file_size
+    header = {"Range": "bytes=%s-%s" % (first_byte, file_size)}
+    pbar = tqdm(total=file_size, initial=first_byte, unit='B', unit_scale=True, desc=url.split('/')[-1])
+    with (open(dst, 'ab')) as f:
+        while True:
+            chunk = req.read(1024)
+            if not chunk:
+                break
+            file_size += len(chunk)
+            f.write(chunk)
+            pbar.update(len(chunk))
+    pbar.close()
+    return file_size
