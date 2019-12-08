@@ -32,7 +32,7 @@ def draw_outputs(img, outputs, class_names=None):
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     min_wh = np.amin(wh)
     if min_wh <= 100:
-        font_size = 1
+        font_size = 0.5
     else:
         font_size = 1
     for i in range(classes.shape[0]):
@@ -51,13 +51,18 @@ def draw_labels(x, y, class_names=None):
     boxes, classes = tf.split(y, (4, 1), axis=-1)
     classes = classes[..., 0]
     wh = np.flip(img.shape[0:2])
+    min_wh = np.amin(wh)
+    if min_wh <= 100:
+        font_size = 0.5
+    else:
+        font_size = 1
     for i in range(len(boxes)):
         x1y1 = tuple((np.array(boxes[i][0:2]) * wh).astype(np.int32))
         x2y2 = tuple((np.array(boxes[i][2:4]) * wh).astype(np.int32))
         img = cv2.rectangle(img, x1y1, x2y2, (255, 0, 0), 1)
         if class_names:
-            img = cv2.putText(img, class_names[classes[i]], (x1y1[0] - 2, x1y1[1] - 2), cv2.FONT_HERSHEY_COMPLEX_SMALL,
-                              0.4, (0, 0, 255), 1)
+            img = cv2.putText(img, class_names[classes[i]], x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL, font_size,
+                              (0, 0, 255), 1)
         else:
             img = cv2.putText(img, str(classes[i]), x1y1, cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 1)
     return img

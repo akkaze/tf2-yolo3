@@ -155,7 +155,6 @@ def load_m2nist_dataset(dst_size=(64, 64), val_ratio=0.2):
         line = line.numpy().decode()
         expected_size = tuple(expected_size.numpy())
         img, amat = cv2_letterbox_resize(img, expected_size)
-        #img = img.astype(np.float32) / 255.
         bbox_with_labels = line.strip().split()[1:]
         xmins, xmaxs, ymins, ymaxs, labels = [], [], [], [], []
         for bbox_with_label in bbox_with_labels:
@@ -175,9 +174,9 @@ def load_m2nist_dataset(dst_size=(64, 64), val_ratio=0.2):
             ymins.append(ymin / expected_size[1])
             xmaxs.append(xmax / expected_size[0])
             ymaxs.append(ymax / expected_size[1])
-            # cv2.rectangle(img, (int(xmin), int(ymin)), (int(xmax), int(ymax)), 255, 1)
+
             labels.append(label)
-        # cv2.imwrite('img.png', img)
+
         img = img.astype(np.float32) / 255.
         bbox = np.stack((xmins, ymins, xmaxs, ymaxs, labels), axis=1)
         paddings = [[0, 100 - bbox.shape[0]], [0, 0]]

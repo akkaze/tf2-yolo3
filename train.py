@@ -3,7 +3,7 @@ from absl.flags import FLAGS
 import tensorflow as tf
 import numpy as np
 import cv2
-from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint, TensorBoar
+from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint, CSVLogger
 from yolo3.models import YoloV3, YoloV3Tiny, YoloLoss, yolo_anchors, yolo_anchor_masks, yolo_tiny_anchors, yolo_tiny_anchor_masks
 import yolo3.dataset as dataset
 import sys
@@ -32,13 +32,16 @@ def main(_argv):
             channels = 1
         else:
             channels = 3
-        model = YoloV3Tiny(size, channels=channels, training=True, classes=FLAGS.num_classes)
+        model = YoloV3Tiny(size, channels=channels, training=True, num_classes=FLAGS.num_classes)
         anchors = yolo_tiny_anchors
         anchor_masks = yolo_tiny_anchor_masks
     else:
-        model = YoloV3(size, training=True, classes=FLAGS.num_classes)
+        model = YoloV3(size, training=True, num_classes=FLAGS.num_classes)
         anchors = yolo_anchors
         anchor_masks = yolo_anchor_masks
+    if FLAGS.checkpoint:
+        model.load_weights(FLAGS.checkpoint)
+        logging.info('resume training')
 
     if not FLAGS.m2nist:
         train_dataset = dataset.load_textline_dataset(FLAGS.dataset, size)
@@ -60,7 +63,7 @@ def main(_argv):
                                   (x, dataset.transform_targets(y, anchors, anchor_masks, FLAGS.num_classes)))
     model.summary()
     optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
-    loss = [YoloLoss(anchors[mask], classes=FLAGS.num_classes) for mask in anchor_masks]
+    loss = [YoloLoss(anchors[mask], num_classes=FLAGS.num_classes) for mask in anchor_masks]
 
     model.compile(optimizer=optimizer, loss=loss, run_eagerly=FLAGS.eager)
 
@@ -68,7 +71,7 @@ def main(_argv):
         ReduceLROnPlateau(verbose=1),
         EarlyStopping(patience=3, verbose=1),
         ModelCheckpoint('checkpoints/yolov3_{epoch}.h5', verbose=1, save_weights_only=False),
-        TensorBoard(log_dir='logs')
+        CSVLogger('training.log')
     ]
 
     history = model.fit(train_dataset, epochs=FLAGS.epochs, callbacks=callbacks, validation_data=None)
