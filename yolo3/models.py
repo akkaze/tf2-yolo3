@@ -51,8 +51,8 @@ def DarknetBlock(x, filters, blocks):
     return x
 
 
-def Darknet(name=None, input_channel=3):
-    x = inputs = Input([None, None, input_channel])
+def Darknet(name=None, num_channels=3):
+    x = inputs = Input([None, None, num_channels])
     x = DarknetConv(x, 16, 3)
     x = DarknetBlock(x, 32, 1)
     x = DarknetBlock(x, 64, 2)  # skip connection
@@ -62,8 +62,8 @@ def Darknet(name=None, input_channel=3):
     return tf.keras.Model(inputs, (x_36, x_61, x), name=name)
 
 
-def DarknetTiny(name=None, channels=3):
-    x = inputs = Input([None, None, channels])
+def DarknetTiny(name=None, num_channels=3):
+    x = inputs = Input([None, None, num_channels])
     x = DarknetConv(x, 8, 3)
     x = MaxPool2D(2, 2, 'same')(x)
     x = DarknetConv(x, 16, 3)
@@ -246,10 +246,10 @@ def yolo_nms(outputs, anchors, masks, num_classes, iou_threshold=0.2, score_thre
     return boxes_, scores_, classes_
 
 
-def YoloV3(size=None, channels=3, anchors=yolo_anchors, masks=yolo_anchor_masks, num_classes=10, training=False):
-    x = inputs = Input([*size, channels])
+def YoloV3(size=None, num_channels=3, anchors=yolo_anchors, masks=yolo_anchor_masks, num_classes=10, training=False):
+    x = inputs = Input([*size, num_channels])
 
-    x_36, x_61, x = Darknet(name='yolo_darknet')(x)
+    x_36, x_61, x = Darknet(name='yolo_darknet', num_channels=num_channels)(x)
 
     x = YoloConv(512, name='yolo_conv_0')(x)
     output_0 = YoloOutput(512, len(masks[0]), num_classes, name='yolo_output_0')(x)
@@ -274,14 +274,14 @@ def YoloV3(size=None, channels=3, anchors=yolo_anchors, masks=yolo_anchor_masks,
 
 
 def YoloV3Tiny(size=None,
-               channels=3,
+               num_channels=3,
                anchors=yolo_tiny_anchors,
                masks=yolo_tiny_anchor_masks,
                num_classes=10,
                training=False):
     x = inputs = Input([*size, channels])
 
-    x_8, x = DarknetTiny(name='yolo_darknet', channels=channels)(x)
+    x_8, x = DarknetTiny(name='yolo_darknet', num_channels=num_channels)(x)
 
     x = YoloConvTiny(128, name='yolo_conv_0')(x)
     output_0 = YoloOutput(128, len(masks[0]), num_classes, name='yolo_output_0')(x)

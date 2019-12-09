@@ -113,19 +113,25 @@ def load_textline_dataset(file_pattern, size):
 
 
 def download_m2nist_if_not_exist():
-    data_rootdir = os.path.expanduser('~/.m2nist')
+    data_rootdir = os.path.expanduser(os.path.join('~', '.m2nist'))
     m2nist_zip_path = os.path.join(data_rootdir, 'm2nist.zip')
     if os.path.exists(m2nist_zip_path):
         return
     os.makedirs(data_rootdir, exist_ok=True)
     m2nist_zip_url = 'https://raw.githubusercontent.com/akkaze/datasets/master/m2nist.zip'
+    fail_counter = 0
     while True:
         try:
             print('Trying to download m2nist...')
             download_from_url(m2nist_zip_url, m2nist_zip_path)
             break
         except Exception as exc:
+            fail_counter += 1
             print('Errors occured : {0}'.format(exc))
+            if fail_counter >= 6:
+                print(
+                    'Please try to download dataset from {0} by yourself and put it under the directory {1}'.format(
+                        m2nist_zip_path), data_rootdir)
             time.sleep(5)
             continue
     zipf = zipfile.ZipFile(m2nist_zip_path)
@@ -135,7 +141,7 @@ def download_m2nist_if_not_exist():
 
 def load_m2nist_dataset(dst_size=(64, 64), val_ratio=0.2):
     download_m2nist_if_not_exist()
-    data_rootdir = os.path.expanduser('~/.m2nist')
+    data_rootdir = os.path.expanduser(os.path.join('~', '.m2nist'))
     imgs = np.load(os.path.join(data_rootdir, 'combined.npy')).astype(np.uint8)
 
     num_data = imgs.shape[0]

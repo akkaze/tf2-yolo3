@@ -11,15 +11,16 @@ import sys
 
 flags.DEFINE_string('dataset', '', 'path to dataset')
 flags.DEFINE_string('val_dataset', '', 'path to validation dataset')
-flags.DEFINE_boolean('tiny', True, 'yolov3 or yolov3-tiny')
+flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
 flags.DEFINE_boolean('eager', True, 'run_eagerly or not')
 flags.DEFINE_boolean('m2nist', True, 'use m2nist datast or not')
 flags.DEFINE_string('checkpoint', '', 'checkpoint file for resume training')
-flags.DEFINE_list('size', [64, 80], 'image size')
+flags.DEFINE_list('size', [64, 96], 'image size')
 flags.DEFINE_integer('epochs', 30, 'number of epochs')
 flags.DEFINE_integer('batch_size', 1, 'batch size')
 flags.DEFINE_float('learning_rate', 1e-4, 'learning rate')
 flags.DEFINE_integer('num_classes', 10, 'number of classes in the model')
+flags.DEFINE_integer('num_channels', 1, 'number of channels of image')
 
 
 def main(_argv):
@@ -28,16 +29,16 @@ def main(_argv):
     if len(physical_devices) > 0:
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
     os.makedirs('checkpoints', exist_ok=True)
+    if FLAGS.m2nist:
+        num_channels = 1
+    else:
+        num_channels = FLAGS.num_channels
     if FLAGS.tiny:
-        if FLAGS.m2nist:
-            channels = 1
-        else:
-            channels = 3
-        model = YoloV3Tiny(size, channels=channels, training=True, num_classes=FLAGS.num_classes)
+        model = YoloV3Tiny(size, num_channels=num_channels, training=True, num_classes=FLAGS.num_classes)
         anchors = yolo_tiny_anchors
         anchor_masks = yolo_tiny_anchor_masks
     else:
-        model = YoloV3(size, training=True, num_classes=FLAGS.num_classes)
+        model = YoloV3(size, num_channels=num_channels, training=True, num_classes=FLAGS.num_classes)
         anchors = yolo_anchors
         anchor_masks = yolo_anchor_masks
     if FLAGS.checkpoint:
