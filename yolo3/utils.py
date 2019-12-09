@@ -31,7 +31,7 @@ def broadcast_iou(box_1, box_2):
 
 def draw_outputs(img, outputs, class_names=None):
     boxes, objectness, classes = outputs
-    boxes, objectness, classes = boxes[0], objectness[0], classes[0]
+    #boxes, objectness, classes = boxes[0], objectness[0], classes[0]
     wh = np.flip(img.shape[0:2])
     if img.ndim == 2 or img.shape[2] == 1:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)

@@ -209,7 +209,7 @@ def batched_nms(bboxes, scores, iou_threshold):
     return picked_boxes, picked_scores
 
 
-def yolo_nms(outputs, anchors, masks, num_classes, iou_threshold=0.2, score_threshold=0.5):
+def yolo_nms(outputs, anchors, masks, num_classes, iou_threshold=0.5, score_threshold=0.5):
     boxes, confs, classes = [], [], []
 
     for o in outputs:
