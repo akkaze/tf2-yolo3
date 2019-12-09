@@ -279,7 +279,7 @@ def YoloV3Tiny(size=None,
                masks=yolo_tiny_anchor_masks,
                num_classes=10,
                training=False):
-    x = inputs = Input([*size, channels])
+    x = inputs = Input([*size, num_channels])
 
     x_8, x = DarknetTiny(name='yolo_darknet', num_channels=num_channels)(x)
 
