@@ -4,26 +4,25 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import Model
 import cv2
-from tensorflow.keras.layers import Add, Concatenate, Conv2D, Input, Lambda, LeakyReLU, MaxPool2D, UpSampling2D, \
+from tensorflow.keras.layers import Add, Concatenate, Conv2D, Input, Lambda, LeakyReLU, UpSampling2D, \
     ZeroPadding2D, BatchNormalization
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.losses import binary_crossentropy, sparse_categorical_crossentropy
 from .utils import broadcast_iou
 
-yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45), (59, 119), (116, 90), (156, 198),
-                         (203, 226)], np.float32) / 256.
+yolo_anchors = np.array([(1 / 9., 3 / 9.), (2 / 9., 2 / 9.), (3 / 9., 1 / 9.), (2 / 9., 6 / 9.), (4 / 9., 4 / 9.),
+                         (6 / 9., 2 / 9.), (3 / 9., 9 / 9.), (6 / 9., 6 / 9.), (9 / 9., 3 / 9.)], np.float32)
 yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
 
-yolo_tiny_anchors = np.array([(10, 14), (23, 27), (37, 58), (81, 82), (115, 139), (214, 209)], np.float32) / 256.
+yolo_tiny_anchors = np.array([(1 / 6., 3 / 6.), (2 / 6., 2 / 6.), (3 / 6., 1 / 6.), (2 / 6., 6 / 6.), (4 / 6., 4 / 6.),
+                              (
+                                  6 / 6.,
+                                  2 / 6,
+                              )], np.float32)
 yolo_tiny_anchor_masks = np.array([[3, 4, 5], [0, 1, 2]])
 
 
-def DarknetConv(x, filters, size, strides=1, batch_norm=True):
-    if strides == 1:
-        padding = 'same'
-    else:
-        x = ZeroPadding2D(((1, 0), (1, 0)))(x)  # top left half-padding
-        padding = 'valid'
+def DarknetConv(x, filters, size, strides=1, padding='same', batch_norm=True):
     x = Conv2D(filters=filters,
                kernel_size=size,
                strides=strides,
@@ -64,17 +63,11 @@ def Darknet(name=None, num_channels=3):
 
 def DarknetTiny(name=None, num_channels=3):
     x = inputs = Input([None, None, num_channels])
-    x = DarknetConv(x, 8, 3)
-    x = MaxPool2D(2, 2, 'same')(x)
-    x = DarknetConv(x, 16, 3)
-    x = MaxPool2D(2, 2, 'same')(x)
-    x = DarknetConv(x, 24, 3)
-    x = MaxPool2D(2, 2, 'same')(x)
-    x = x_8 = DarknetConv(x, 48, 3)
-    x = MaxPool2D(2, 2, 'same')(x)
+    x = DarknetConv(x, 8, 3, 2)
+    x = DarknetConv(x, 16, 3, 2)
+    x = x_8 = DarknetConv(x, 24, 3, 2)
+    x = DarknetConv(x, 48, 3, 2)
     x = DarknetConv(x, 64, 3)
-    x = MaxPool2D(2, 1, 'same')(x)
-    x = DarknetConv(x, 96, 3)
     return tf.keras.Model(inputs, (x_8, x), name=name)
 
 
