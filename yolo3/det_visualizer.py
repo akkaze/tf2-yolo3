@@ -37,11 +37,11 @@ class DetVisualizer(Callback):
         os.makedirs(epoch_dir)
         for batch, (images, labels) in enumerate(self.dataset):
             images = images.numpy()
-            boxes, scores, classes = model.predict(images)
-            for i in range(boxes.shape[0]):
+            for i in range(images.shape[0]):
+                boxes, scores, classes = model.predict(images[i:i + 1, ...])
                 img_for_this = (images[i, ...] * 255).astype(np.uint8)
 
-                boxes_for_this, scores_for_this, classes_for_this = boxes[i, ...], scores[i, ...], classes[i, ...]
+                boxes_for_this, scores_for_this, classes_for_this = boxes[0, ...], scores[0, ...], classes[0, ...]
 
                 img_for_this = draw_outputs(img_for_this, (boxes_for_this, scores_for_this, classes_for_this))
                 cv2.imwrite(os.path.join(epoch_dir, '{0}.jpg'.format(uuid.uuid4())), img_for_this)

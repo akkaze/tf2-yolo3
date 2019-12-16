@@ -124,7 +124,7 @@ def YoloOutput(filters, anchors, classes, name=None):
     return yolo_output
 
 
-def yolo_boxes(pred, anchors, num_classes):
+def yolo_boxes(pred, anchors, num_classes, training=True):
     # pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
     grid_size = tf.shape(pred)[1:2]
     grid_y, grid_x = tf.shape(pred)[1], tf.shape(pred)[2]
@@ -133,8 +133,10 @@ def yolo_boxes(pred, anchors, num_classes):
     box_xy = tf.sigmoid(box_xy)
 
     objectness = tf.sigmoid(objectness)
-    class_probs = tf.nn.softmax(class_probs)
-
+    if training:
+        class_probs = tf.nn.softmax(class_probs)
+    else:
+        class_probs = tf.cast(tf.equal(tf.reduce_max(class_probs, axis=-1, keepdims=True), class_probs), tf.float32)
     pred_box = tf.concat((box_xy, box_wh), axis=-1)  # original xywh for loss
 
     # !!! grid[x][y] == (y, x)
