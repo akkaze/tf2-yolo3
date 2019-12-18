@@ -11,11 +11,11 @@ from yolo3.convert import make_eval_model_from_trained_model
 from yolo3.utils import draw_outputs, cv2_letterbox_resize
 from yolo3.convert import make_eval_model_from_trained_model
 
-flags.DEFINE_string('weights', './checkpoints/yolov3_22.h5', 'path to weights file')
+flags.DEFINE_string('weights', './checkpoints/yolov3_26.h5', 'path to weights file')
 flags.DEFINE_string('checkpoint', '', 'path to checkpoint file')
 flags.DEFINE_boolean('tiny', True, 'yolov3 or yolov3-tiny')
-flags.DEFINE_list('size', [64, 96], 'resize images to')
-flags.DEFINE_string('image', './data/4000.png', 'path to input image')
+flags.DEFINE_list('size', [64, 80], 'resize images to')
+flags.DEFINE_string('image', './data/4200.png', 'path to input image')
 flags.DEFINE_string('output', './output.png', 'path to output image')
 flags.DEFINE_integer('num_classes', 10, 'number of classes in the model')
 flags.DEFINE_integer('num_channels', 1, 'number of channels of image')

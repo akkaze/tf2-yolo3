@@ -133,10 +133,7 @@ def yolo_boxes(pred, anchors, num_classes, training=True):
     box_xy = tf.sigmoid(box_xy)
 
     objectness = tf.sigmoid(objectness)
-    if training:
-        class_probs = tf.nn.softmax(class_probs)
-    else:
-        class_probs = tf.cast(tf.equal(tf.reduce_max(class_probs, axis=-1, keepdims=True), class_probs), tf.float32)
+    class_probs = tf.nn.softmax(class_probs)
     pred_box = tf.concat((box_xy, box_wh), axis=-1)  # original xywh for loss
 
     # !!! grid[x][y] == (y, x)
@@ -153,13 +150,12 @@ def yolo_boxes(pred, anchors, num_classes, training=True):
     return bbox, objectness, class_probs, pred_box
 
 
-def nms(bboxes, scores, iou_threshold):
+def nms(bboxes, scores, num_classes, iou_threshold):
     # If no bounding boxes, return empty list
     if len(bboxes) == 0:
-        return np.zeros((0, 4), np.float32), np.zeros((0), np.int32)
+        return np.zeros((0, 4), np.float32), np.zeros((0, num_classes), np.int32)
     boxes = np.array(bboxes)
     start_x, start_y, end_x, end_y = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
-
     score = np.array(scores)
     # Picked bounding boxes
     picked_boxes, picked_scores = [], []
@@ -167,8 +163,7 @@ def nms(bboxes, scores, iou_threshold):
     # Compute areas of bounding boxes
     areas = (end_x - start_x + 1) * (end_y - start_y + 1)
     # Sort by confidence score of bounding boxes
-    order = np.argsort(score)
-
+    order = np.argsort(np.amax(score, axis=-1))
     # Iterate bounding boxes
     while order.size > 0:
         # The index of largest confidence score
@@ -190,13 +185,15 @@ def nms(bboxes, scores, iou_threshold):
     return np.stack(picked_boxes), np.stack(picked_scores)
 
 
-def batched_nms(bboxes, scores, iou_threshold):
-    bboxes, scores, iou_threshold = bboxes.numpy(), scores.numpy(), iou_threshold.numpy()
+def batched_nms(bboxes, scores, num_classes, iou_threshold):
+    bboxes, scores, num_classes, iou_threshold = bboxes.numpy(), scores.numpy(), num_classes.numpy(
+    ), iou_threshold.numpy()
     picked_boxes, picked_scores = [], []
     for i in range(bboxes.shape[0]):
         bboxes_this_bacth = bboxes[i, ...]
         scores_this_batch = scores[i, ...]
-        picked_boxes_this_batch, picked_scores_this_batch = nms(bboxes_this_bacth, scores_this_batch, iou_threshold)
+        picked_boxes_this_batch, picked_scores_this_batch = nms(bboxes_this_bacth, scores_this_batch, num_classes,
+                                                                iou_threshold)
         picked_boxes.append(picked_boxes_this_batch)
         picked_scores.append(picked_scores_this_batch)
     picked_boxes = np.stack(picked_boxes)
@@ -204,7 +201,7 @@ def batched_nms(bboxes, scores, iou_threshold):
     return picked_boxes, picked_scores
 
 
-def yolo_nms(outputs, anchors, masks, num_classes, iou_threshold=0.5, score_threshold=0.5):
+def yolo_nms(outputs, anchors, masks, num_classes, iou_threshold=0.6, score_threshold=0.15):
     boxes, confs, classes = [], [], []
 
     for o in outputs:
@@ -216,29 +213,19 @@ def yolo_nms(outputs, anchors, masks, num_classes, iou_threshold=0.5, score_thre
     class_probs = tf.concat(classes, axis=1)
     box_scores = confs * class_probs
     mask = box_scores >= score_threshold
+    mask = tf.reduce_any(mask, axis=-1)
 
-    boxes_ = []
-    scores_ = []
-    classes_ = []
-    for c in range(num_classes):
-        class_boxes = tf.boolean_mask(boxes, mask[..., c])
-        class_boxes = tf.reshape(class_boxes, (1, -1, 4))
+    class_boxes = tf.boolean_mask(boxes, mask)
+    class_boxes = tf.reshape(class_boxes, (tf.shape(boxes)[0], -1, 4))
+    class_box_scores = tf.boolean_mask(box_scores, mask)
+    class_box_scores = tf.reshape(class_box_scores, (tf.shape(boxes)[0], -1, num_classes))
 
-        class_box_scores = tf.boolean_mask(box_scores[..., c], mask[..., c])
-        class_box_scores = tf.reshape(class_box_scores, (1, -1))
+    class_boxes, class_box_scores = tf.py_function(func=batched_nms,
+                                                   inp=[class_boxes, class_box_scores, num_classes, iou_threshold],
+                                                   Tout=[tf.float32, tf.float32])
+    classes = tf.argmax(class_box_scores, axis=-1)
 
-        class_boxes, class_box_scores = tf.py_function(func=batched_nms,
-                                                       inp=[class_boxes, class_box_scores, iou_threshold],
-                                                       Tout=[tf.float32, tf.float32])
-        classes = tf.ones_like(class_box_scores, tf.int32) * c
-        boxes_.append(class_boxes)
-        scores_.append(class_box_scores)
-        classes_.append(classes)
-    boxes_ = tf.concat(boxes_, axis=1)
-    scores_ = tf.concat(scores_, axis=1)
-    classes_ = tf.concat(classes_, axis=1)
-
-    return boxes_, scores_, classes_
+    return class_boxes, class_box_scores, classes
 
 
 def YoloV3(size=None, num_channels=3, anchors=yolo_anchors, masks=yolo_anchor_masks, num_classes=10, training=False):
@@ -306,9 +293,6 @@ def YoloLoss(anchors, num_classes=10, ignore_thresh=0.5):
         true_xy = (true_box[..., 0:2] + true_box[..., 2:4]) / 2.
         true_wh = true_box[..., 2:4] - true_box[..., 0:2]
 
-        # true_obj = tf.cast(true_obj, tf.int32)
-        # true_class_idx = tf.cast(true_class_idx, tf.int32)
-        # tf.print(tf.math.count_nonzero(true_class_idx))
         # give higher weights to small boxes
         box_loss_scale = 2 - true_wh[..., 0] * true_wh[..., 1]
 
@@ -319,7 +303,6 @@ def YoloLoss(anchors, num_classes=10, ignore_thresh=0.5):
         grid = tf.meshgrid(tf.range(grid_x), tf.range(grid_y))
 
         grid = tf.expand_dims(tf.stack(grid, axis=-1), axis=2)
-        #tf.print(tf.math.count_nonzero(true_xy))
         true_xy = true_xy * tf.cast(grid_size, tf.float32) - tf.cast(grid, tf.float32)
         true_wh = tf.math.log(true_wh / anchors)
         true_wh = tf.where(tf.math.is_inf(true_wh), tf.zeros_like(true_wh), true_wh)
