@@ -126,7 +126,7 @@ def YoloOutput(filters, anchors, classes, name=None):
 
 def yolo_boxes(pred, anchors, num_classes, training=True):
     # pred: (batch_size, grid, grid, anchors, (x, y, w, h, obj, ...classes))
-    grid_size = tf.shape(pred)[1:2][::-1]
+    grid_size = tf.shape(pred)[1:3][::-1]
     grid_y, grid_x = tf.shape(pred)[1], tf.shape(pred)[2]
 
     box_xy, box_wh, objectness, class_probs = tf.split(pred, (2, 2, 1, num_classes), axis=-1)
@@ -297,7 +297,7 @@ def YoloLoss(anchors, num_classes=10, ignore_thresh=0.5):
         box_loss_scale = 2 - true_wh[..., 0] * true_wh[..., 1]
 
         # 3. inverting the pred box equations
-        grid_size = tf.shape(y_pred)[1:2][::-1]
+        grid_size = tf.shape(y_pred)[1:3][::-1]
 
         grid_y, grid_x = tf.shape(y_pred)[1], tf.shape(y_pred)[2]
         grid = tf.meshgrid(tf.range(grid_x), tf.range(grid_y))
